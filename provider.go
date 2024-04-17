@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/testcontainers/testcontainers-go/internal/core"
@@ -12,7 +11,7 @@ import (
 
 // possible provider types
 const (
-	ProviderDefault ProviderType = iota // default will auto-detect provider from DOCKER_HOST environment variable
+	ProviderDefault ProviderType = iota // default will auto-detect provider from the docker host
 	ProviderDocker
 	ProviderPodman
 )
@@ -92,6 +91,10 @@ type ContainerProvider interface {
 	Config() TestcontainersConfig
 }
 
+// hostExtractorFn is variable to help tests that use ProviderType.GetProvider. Tests might overwrite it to prevent
+// influencing each other, since core.ExtractDockerHost is optimized to only extract the host once.
+var hostExtractorFn = core.ExtractDockerHost
+
 // GetProvider provides the provider implementation for a certain type
 func (t ProviderType) GetProvider(opts ...GenericProviderOption) (GenericProvider, error) {
 	opt := &GenericProviderOptions{
@@ -102,28 +105,27 @@ func (t ProviderType) GetProvider(opts ...GenericProviderOption) (GenericProvide
 		o.ApplyGenericTo(opt)
 	}
 
-	pt := t
-	if pt == ProviderDefault && strings.Contains(os.Getenv("DOCKER_HOST"), "podman.sock") {
-		pt = ProviderPodman
+	defaultNetwork := Bridge
+	switch t {
+	case ProviderDocker:
+		break
+	case ProviderPodman:
+		defaultNetwork = Podman
+	case ProviderDefault:
+		if strings.Contains(hostExtractorFn(context.Background()), "podman.sock") {
+			defaultNetwork = Podman
+		}
+	default:
+		return nil, errors.New("unknown provider")
 	}
 
-	switch pt {
-	case ProviderDefault, ProviderDocker:
-		providerOptions := append(Generic2DockerOptions(opts...), WithDefaultBridgeNetwork(Bridge))
-		provider, err := NewDockerProvider(providerOptions...)
-		if err != nil {
-			return nil, fmt.Errorf("%w, failed to create Docker provider", err)
-		}
-		return provider, nil
-	case ProviderPodman:
-		providerOptions := append(Generic2DockerOptions(opts...), WithDefaultBridgeNetwork(Podman))
-		provider, err := NewDockerProvider(providerOptions...)
-		if err != nil {
-			return nil, fmt.Errorf("%w, failed to create Docker provider", err)
-		}
-		return provider, nil
+	providerOptions := append(Generic2DockerOptions(opts...), WithDefaultBridgeNetwork(defaultNetwork))
+	provider, err := NewDockerProvider(providerOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("%w, failed to create Docker provider", err)
 	}
-	return nil, errors.New("unknown provider")
+
+	return provider, nil
 }
 
 // NewDockerProvider creates a Docker provider with the EnvClient

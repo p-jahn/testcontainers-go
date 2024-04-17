@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -39,7 +38,7 @@ func IsWindows() bool {
 //  5. Else, return ErrRootlessDockerNotFound, wrapping secific errors for each of the above paths.
 //
 // It should include the Docker socket schema (unix://) in the returned path.
-func rootlessDockerSocketPath(_ context.Context) (string, error) {
+func rootlessDockerSocketPath() (string, error) {
 	// adding a manner to test it on non-windows machines, setting the GOOS env var to windows
 	// This is needed because runtime.GOOS is a constant that returns the OS of the machine running the test
 	if IsWindows() {

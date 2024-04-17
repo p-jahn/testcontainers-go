@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -68,7 +67,7 @@ func TestRootlessDockerSocketPathNotSupportedOnWindows(t *testing.T) {
 	})
 
 	t.Setenv("GOOS", "windows")
-	socketPath, err := rootlessDockerSocketPath(context.Background())
+	socketPath, err := rootlessDockerSocketPath()
 	require.ErrorIs(t, err, ErrRootlessDockerNotSupportedWindows)
 	assert.Empty(t, socketPath)
 }
@@ -98,7 +97,7 @@ func TestRootlessDockerSocketPath(t *testing.T) {
 		err := createTmpDockerSocket(tmpDir)
 		require.NoError(t, err)
 
-		socketPath, err := rootlessDockerSocketPath(context.Background())
+		socketPath, err := rootlessDockerSocketPath()
 		require.NoError(t, err)
 		assert.NotEmpty(t, socketPath)
 	})
@@ -117,7 +116,7 @@ func TestRootlessDockerSocketPath(t *testing.T) {
 		require.NoError(t, err)
 		t.Setenv("HOME", tmpDir)
 
-		socketPath, err := rootlessDockerSocketPath(context.Background())
+		socketPath, err := rootlessDockerSocketPath()
 		require.NoError(t, err)
 		assert.Equal(t, DockerSocketSchema+runDir+"/docker.sock", socketPath)
 	})
@@ -136,7 +135,7 @@ func TestRootlessDockerSocketPath(t *testing.T) {
 		require.NoError(t, err)
 		t.Setenv("HOME", tmpDir)
 
-		socketPath, err := rootlessDockerSocketPath(context.Background())
+		socketPath, err := rootlessDockerSocketPath()
 		require.NoError(t, err)
 		assert.Equal(t, DockerSocketSchema+desktopDir+"/docker.sock", socketPath)
 	})
@@ -165,7 +164,7 @@ func TestRootlessDockerSocketPath(t *testing.T) {
 		err = createTmpDockerSocket(runDir)
 		require.NoError(t, err)
 
-		socketPath, err := rootlessDockerSocketPath(context.Background())
+		socketPath, err := rootlessDockerSocketPath()
 		require.NoError(t, err)
 		assert.Equal(t, DockerSocketSchema+runDir+"/docker.sock", socketPath)
 	})
@@ -177,7 +176,7 @@ func TestRootlessDockerSocketPath(t *testing.T) {
 
 		setupRootlessNotFound(t)
 
-		socketPath, err := rootlessDockerSocketPath(context.Background())
+		socketPath, err := rootlessDockerSocketPath()
 		require.ErrorIs(t, err, ErrRootlessDockerNotFound)
 		assert.Empty(t, socketPath)
 

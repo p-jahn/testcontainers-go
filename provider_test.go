@@ -4,78 +4,79 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go/internal/core"
 )
 
 func TestProviderTypeGetProviderAutodetect(t *testing.T) {
-	dockerHost := core.ExtractDockerHost(context.Background())
+	const dockerSocket = "unix://$XDG_RUNTIME_DIR/docker.sock"
 	const podmanSocket = "unix://$XDG_RUNTIME_DIR/podman/podman.sock"
+	defaultHostExtractor := hostExtractorFn
+	t.Cleanup(func() {
+		hostExtractorFn = defaultHostExtractor
+	})
 
 	tests := []struct {
-		name       string
-		tr         ProviderType
-		DockerHost string
-		want       string
-		wantErr    bool
+		name         string
+		providerType ProviderType
+		inferredHost string
+		want         string
 	}{
 		{
-			name:       "default provider without podman.socket",
-			tr:         ProviderDefault,
-			DockerHost: dockerHost,
-			want:       Bridge,
+			name:         "default provider without podman.socket",
+			providerType: ProviderDefault,
+			inferredHost: dockerSocket,
+			want:         Bridge,
 		},
 		{
-			name:       "default provider with podman.socket",
-			tr:         ProviderDefault,
-			DockerHost: podmanSocket,
-			want:       Podman,
+			name:         "default provider with podman.socket",
+			providerType: ProviderDefault,
+			inferredHost: podmanSocket,
+			want:         Podman,
 		},
 		{
-			name:       "docker provider without podman.socket",
-			tr:         ProviderDocker,
-			DockerHost: dockerHost,
-			want:       Bridge,
+			name:         "docker provider without podman.socket",
+			providerType: ProviderDocker,
+			inferredHost: dockerSocket,
+			want:         Bridge,
 		},
 		{
 			// Explicitly setting Docker provider should not be overridden by auto-detect
-			name:       "docker provider with podman.socket",
-			tr:         ProviderDocker,
-			DockerHost: podmanSocket,
-			want:       Bridge,
+			name:         "docker provider with podman.socket",
+			providerType: ProviderDocker,
+			inferredHost: podmanSocket,
+			want:         Bridge,
 		},
 		{
-			name:       "Podman provider without podman.socket",
-			tr:         ProviderPodman,
-			DockerHost: dockerHost,
-			want:       Podman,
+			name:         "Podman provider without podman.socket",
+			providerType: ProviderPodman,
+			inferredHost: dockerSocket,
+			want:         Podman,
 		},
 		{
-			name:       "Podman provider with podman.socket",
-			tr:         ProviderPodman,
-			DockerHost: podmanSocket,
-			want:       Podman,
+			name:         "Podman provider with podman.socket",
+			providerType: ProviderPodman,
+			inferredHost: podmanSocket,
+			want:         Podman,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.tr == ProviderPodman && core.IsWindows() {
+			if tt.providerType == ProviderPodman && core.IsWindows() {
 				t.Skip("Podman provider is not implemented for Windows")
 			}
 
-			t.Setenv("DOCKER_HOST", tt.DockerHost)
+			hostExtractorFn = func(_ context.Context) string {
+				return tt.inferredHost
+			}
 
-			got, err := tt.tr.GetProvider()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ProviderType.GetProvider() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got, err := tt.providerType.GetProvider()
+			require.NoError(t, err)
+
 			provider, ok := got.(*DockerProvider)
-			if !ok {
-				t.Fatalf("ProviderType.GetProvider() = %T, want %T", got, &DockerProvider{})
-			}
-			if provider.defaultBridgeNetworkName != tt.want {
-				t.Errorf("ProviderType.GetProvider() = %v, want %v", provider.defaultBridgeNetworkName, tt.want)
-			}
+			require.True(t, ok, "ProviderType.GetProvider() = %T, want %T", got, &DockerProvider{})
+			assert.Equal(t, tt.want, provider.defaultBridgeNetworkName)
 		})
 	}
 }
