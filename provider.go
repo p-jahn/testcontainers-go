@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/testcontainers/testcontainers-go/internal/core"
@@ -92,6 +91,10 @@ type ContainerProvider interface {
 	Config() TestcontainersConfig
 }
 
+// hostExtractorFn is variable to help tests that use ProviderType.GetProvider. Tests might overwrite it to prevent
+// influencing each other, since core.ExtractDockerHost is optimized to only extract the host once.
+var hostExtractorFn = core.ExtractDockerHost
+
 // GetProvider provides the provider implementation for a certain type
 func (t ProviderType) GetProvider(opts ...GenericProviderOption) (GenericProvider, error) {
 	opt := &GenericProviderOptions{
@@ -103,7 +106,7 @@ func (t ProviderType) GetProvider(opts ...GenericProviderOption) (GenericProvide
 	}
 
 	pt := t
-	if pt == ProviderDefault && strings.Contains(os.Getenv("DOCKER_HOST"), "podman.sock") {
+	if pt == ProviderDefault && strings.Contains(hostExtractorFn(context.Background()), "podman.sock") {
 		pt = ProviderPodman
 	}
 
