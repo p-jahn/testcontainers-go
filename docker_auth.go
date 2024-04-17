@@ -44,7 +44,13 @@ func getRegistryAuth(reg string, cfgs map[string]registry.AuthConfig) (registry.
 			continue
 		}
 
-		if keyURL.Host == reg {
+		host := keyURL.Host
+		if keyURL.Scheme == "" {
+			// url.Parse: The url may be relative (a path, without a host) [...]
+			host = keyURL.Path
+		}
+
+		if host == reg {
 			return cfg, true
 		}
 	}
