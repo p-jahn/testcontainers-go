@@ -13,11 +13,14 @@ import (
 	"github.com/testcontainers/testcontainers-go/internal/core"
 )
 
+// defaultRegistryFn is variable overwritten in tests to check for behaviour with different default values.
+var defaultRegistryFn = defaultRegistry
+
 // DockerImageAuth returns the auth config for the given Docker image, extracting first its Docker registry.
 // Finally, it will use the credential helpers to extract the information from the docker config file
 // for that registry, if it exists.
 func DockerImageAuth(ctx context.Context, image string) (string, registry.AuthConfig, error) {
-	defaultRegistry := defaultRegistry(ctx)
+	defaultRegistry := defaultRegistryFn(ctx)
 	reg := core.ExtractRegistry(image, defaultRegistry)
 
 	cfgs, err := getDockerAuthConfigs()
