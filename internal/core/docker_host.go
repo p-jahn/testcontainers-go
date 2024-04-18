@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -69,7 +70,7 @@ func DefaultGatewayIP() (string, error) {
 //  7. Else, the default Docker socket including schema will be returned.
 func ExtractDockerHost(ctx context.Context) string {
 	dockerHostOnce.Do(func() {
-		dockerHostCache = extractDockerHost(ctx)
+		dockerHostCache = extractDockerHost(ctx, true)
 	})
 
 	return dockerHostCache
@@ -98,12 +99,12 @@ func ExtractDockerSocket(ctx context.Context) string {
 
 // extractDockerHost Extracts the docker host from the different alternatives, without caching the result.
 // This internal method is handy for testing purposes.
-func extractDockerHost(ctx context.Context) string {
+func extractDockerHost(ctx context.Context, followSymlink bool) string {
 	dockerHostFns := []func() (string, error){
 		testcontainersHostFromProperties,
 		dockerHostFromEnv,
 		func() (string, error) { return dockerHostFromContext(ctx) },
-		dockerSocketPath,
+		func() (string, error) { return dockerSocketPath(followSymlink) },
 		dockerHostFromProperties,
 		rootlessDockerSocketPath,
 	}
@@ -179,7 +180,7 @@ func extractDockerSocketFromClient(ctx context.Context, cli client.APIClient) st
 		return DockerSocketPath
 	}
 
-	dockerHost := extractDockerHost(ctx)
+	dockerHost := extractDockerHost(ctx, false)
 
 	return checkDockerSocketFn(dockerHost)
 }
@@ -230,8 +231,13 @@ func dockerSocketOverridePath(ctx context.Context) (string, error) {
 
 // dockerSocketPath returns the docker socket from the default docker socket path, if it's not empty
 // and the socket exists
-func dockerSocketPath() (string, error) {
+func dockerSocketPath(followSymlink bool) (string, error) {
 	if fileExists(DockerSocketPath) {
+		if followSymlink {
+			if p, err := filepath.EvalSymlinks(DockerSocketPath); err == nil {
+				return DockerSocketSchema + p, nil
+			}
+		}
 		return DockerSocketPathWithSchema, nil
 	}
 
