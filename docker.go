@@ -1267,7 +1267,8 @@ func (p *DockerProvider) attemptToPullImage(ctx context.Context, tag string, pul
 		pull, err = p.client.ImagePull(ctx, tag, pullOpt)
 		if err != nil {
 			var enf errdefs.ErrNotFound
-			if errors.As(err, &enf) {
+			var eu errdefs.ErrUnauthorized
+			if errors.As(err, &enf) || errors.As(err, &eu) {
 				return backoff.Permanent(err)
 			}
 			Logger.Printf("Failed to pull image: %s, will retry", err)
