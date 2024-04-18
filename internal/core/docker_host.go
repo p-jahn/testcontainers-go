@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -232,6 +233,9 @@ func dockerSocketOverridePath(ctx context.Context) (string, error) {
 // and the socket exists
 func dockerSocketPath() (string, error) {
 	if fileExists(DockerSocketPath) {
+		if p, err := filepath.EvalSymlinks(DockerSocketPath); err == nil {
+			return DockerSocketSchema + p, nil
+		}
 		return DockerSocketPathWithSchema, nil
 	}
 
